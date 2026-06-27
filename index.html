@@ -5,17 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adsterra Dashboard</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1 { text-align: center; color: #007bff; }
-        input, button, select { padding: 10px; margin: 5px; font-size: 16px; }
+        body { font-family: Arial; background: #f4f4f4; padding: 20px; }
+        .container { max-width: 1100px; margin: auto; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
+        input, button { padding: 12px; margin: 8px 0; font-size: 16px; width: 100%; }
         button { background: #007bff; color: white; border: none; cursor: pointer; }
         button:hover { background: #0056b3; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        th, td { border: 1px solid #ccc; padding: 10px; text-align: center; }
         th { background: #007bff; color: white; }
-        .balance { font-size: 28px; color: green; font-weight: bold; text-align: center; margin: 20px 0; }
-        .error { color: red; text-align: center; }
+        .balance { font-size: 26px; color: green; font-weight: bold; text-align: center; margin: 20px 0; }
+        .error { color: red; text-align: center; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -23,10 +22,11 @@
         <h1>Adsterra Dashboard</h1>
         
         <label><strong>API Token:</strong></label><br>
-        <input type="text" id="token" placeholder="আপনার Adsterra API Token দিন" style="width: 100%;"><br><br>
+        <input type="text" id="token" placeholder="আপনার Adsterra API Token পেস্ট করুন"><br><br>
         
-        <label><strong>কয় দিনের রিপোর্ট:</strong></label>
-        <input type="number" id="days" value="7" min="1" style="width: 100px;">
+        <label><strong>কয় দিনের রিপোর্ট:</strong></label><br>
+        <input type="number" id="days" value="7" min="1"><br><br>
+        
         <button onclick="fetchReport()">রিপোর্ট দেখুন</button>
 
         <div id="result"></div>
@@ -35,74 +35,68 @@
     <script>
         async function fetchReport() {
             const token = document.getElementById("token").value.trim();
-            const days = parseInt(document.getElementById("days").value);
+            const days = parseInt(document.getElementById("days").value) || 7;
             
             if (!token) {
-                alert("API Token দিন");
+                alert("দয়া করে API Token দিন");
                 return;
             }
 
             const endDate = new Date().toISOString().split('T')[0];
-            const startDate = new Date(Date.now() - (days - 1) * 86400000).toISOString().split('T')[0];
+            const startDate = new Date(Date.now() - (days - 1)*86400000).toISOString().split('T')[0];
 
-            document.getElementById("result").innerHTML = "<p>লোড হচ্ছে...</p>";
-
-            const url = `https://api3.adsterratools.com/publisher/stats.json?start_date=${startDate}&finish_date=${endDate}&group_by=date`;
+            document.getElementById("result").innerHTML = "<p>লোড হচ্ছে... কিছুক্ষণ অপেক্ষা করুন</p>";
 
             try {
-                const response = await fetch(url, {
-                    method: "GET",
+                const url = `https://api3.adsterratools.com/publisher/stats.json?start_date=${startDate}&finish_date=${endDate}&group_by=date`;
+                
+                const res = await fetch(url, {
+                    method: 'GET',
                     headers: {
-                        "X-API-Key": token,
-                        "Accept": "application/json"
+                        'X-API-Key': token,
+                        'Accept': 'application/json'
                     }
                 });
 
-                if (!response.ok) throw new Error("Invalid Token বা সমস্যা হয়েছে");
+                if (!res.ok) {
+                    throw new Error(`Error ${res.status}: Token ভুল অথবা সমস্যা হয়েছে`);
+                }
 
-                const data = await response.json();
+                const data = await res.json();
                 const items = data.items || [];
 
                 let totalImp = 0, totalClicks = 0, totalRev = 0;
-                let tableRows = "";
+                let rows = "";
 
                 items.forEach(item => {
                     totalImp += item.impression || 0;
                     totalClicks += item.clicks || 0;
                     totalRev += item.revenue || 0;
 
-                    tableRows += `
-                        <tr>
-                            <td>${item.date}</td>
-                            <td>${item.impression || 0}</td>
-                            <td>${item.clicks || 0}</td>
-                            <td>${(item.ctr || 0).toFixed(3)}%</td>
-                            <td>$${(item.cpm || 0).toFixed(4)}</td>
-                            <td>$${(item.revenue || 0).toFixed(4)}</td>
-                        </tr>`;
+                    rows += `<tr>
+                        <td>${item.date}</td>
+                        <td>${(item.impression || 0).toLocaleString()}</td>
+                        <td>${(item.clicks || 0).toLocaleString()}</td>
+                        <td>${(item.ctr || 0).toFixed(3)}%</td>
+                        <td>$${(item.cpm || 0).toFixed(4)}</td>
+                        <td>$${(item.revenue || 0).toFixed(4)}</td>
+                    </tr>`;
                 });
 
                 const html = `
                     <div class="balance">মূল ব্যালেন্স: $${totalRev.toFixed(4)}</div>
-                    <p style="text-align:center;">সময়: ${startDate} থেকে ${endDate} (${days} দিন)</p>
-                    
+                    <p style="text-align:center">সময়: ${startDate} — ${endDate} (${days} দিন)</p>
                     <table>
                         <tr>
-                            <th>Date</th>
-                            <th>Impressions</th>
-                            <th>Clicks</th>
-                            <th>CTR (%)</th>
-                            <th>CPM</th>
-                            <th>Revenue</th>
+                            <th>Date</th><th>Impressions</th><th>Clicks</th><th>CTR</th><th>CPM</th><th>Revenue</th>
                         </tr>
-                        ${tableRows}
-                    </table>
-                `;
+                        ${rows}
+                    </table>`;
 
                 document.getElementById("result").innerHTML = html;
 
-            } catch (err) {
-                document.getElementById("result").innerHTML = `<p class="error">❌ ${err.message}</p>`;
+            } catch (e) {
+                document.getElementById("result").innerHTML = `<p class="error">❌ ${e.message}</p>`;
             }
         }
     </script>
